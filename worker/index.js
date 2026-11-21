@@ -22,7 +22,7 @@ const html = `<!doctype html>
 </head>
 <body>
   <div id="app" class="shell"></div>
-  <div id="uploadModal" class="modal" aria-hidden="true"><div class="dialog"><div class="dialog-head"><h2 class="display">添加内容</h2><button class="close" type="button" aria-label="关闭">×</button></div><form id="uploadForm" class="form"><label>分类<select name="type"><option value="work">作品</option><option value="product">产品</option></select></label><label>标题<input name="title" maxlength="80" required placeholder="输入作品或产品标题"></label><label class="drop"><span id="fileText">选择图片或视频<br><small>支持 JPG、PNG、WebP、MP4、WebM</small></span><input name="file" type="file" accept="image/*,video/mp4,video/webm" required></label><button class="pill primary" type="submit">上传并发布</button><div id="uploadStatus" class="status"></div></form></div></div>
+  <div id="uploadModal" class="modal" aria-hidden="true"><div class="dialog"><div class="dialog-head"><h2 class="display">添加内容</h2><button class="close" type="button" aria-label="关闭">×</button></div><form id="uploadForm" class="form"><label>分类<select name="type"><option value="work">作品</option><option value="product">产品</option></select></label><label>标题<input name="title" maxlength="80" required placeholder="输入作品或产品标题"></label><label class="drop"><span id="fileText">选择图片或视频<br><small>支持 JPG、PNG、WebP、MP4、WebM，最大 2GB</small></span><input name="file" type="file" accept="image/*,video/mp4,video/webm" required></label><button class="pill primary" type="submit">上传并发布</button><div id="uploadStatus" class="status"></div></form></div></div>
   <script>
   const MUX='${MUX_ID}';
   const paths={home:'/',works:'/works',products:'/products',contact:'/contact'};
@@ -44,7 +44,10 @@ const html = `<!doctype html>
   function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
   function openUpload(type){modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.querySelector('#uploadForm [name=type]').value=type}
   document.querySelector('.close').onclick=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')};modal.onclick=e=>{if(e.target===modal)document.querySelector('.close').click()};document.querySelector('[name=file]').onchange=e=>{document.getElementById('fileText').textContent=e.target.files[0]?.name||'选择图片或视频'};
-  document.getElementById('uploadForm').onsubmit=e=>{e.preventDefault();const form=e.currentTarget;const status=document.getElementById('uploadStatus');const file=form.elements.file.files[0];if(!file)return;if(file.size>100*1024*1024){status.textContent='文件不能超过 100MB。';return}const submit=form.querySelector('[type=submit]');submit.disabled=true;const params=new URLSearchParams({type:form.elements.type.value,title:form.elements.title.value,filename:file.name});const xhr=new XMLHttpRequest();xhr.open('POST','/api/upload?'+params);xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');xhr.upload.onprogress=event=>{if(event.lengthComputable){const percent=Math.min(99,Math.round(event.loaded/event.total*100));status.textContent='正在上传 '+percent+'% · '+formatBytes(event.loaded)+' / '+formatBytes(event.total)}else status.textContent='正在上传…'};xhr.onload=()=>{submit.disabled=false;if(xhr.status===401){status.innerHTML='请先 <a href="/signin-with-chatgpt?return_to='+encodeURIComponent(location.pathname)+'" target="_top" style="color:#fff">登录</a> 后上传。';return}if(xhr.status===403){status.textContent='仅网站所有者邮箱可以发布内容。';return}if(xhr.status<200||xhr.status>=300){status.textContent='上传失败，请检查文件格式或网络后重试。';return}status.textContent='上传完成，正在刷新…';setTimeout(()=>{document.querySelector('.close').click();render()},350)};xhr.onerror=()=>{submit.disabled=false;status.textContent='网络中断，上传未完成，请重试。'};status.textContent='准备上传…';xhr.send(file)};
+  document.getElementById('uploadForm').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget;const status=document.getElementById('uploadStatus');const file=form.elements.file.files[0];if(!file)return;if(file.size>2*1024*1024*1024){status.textContent='文件不能超过 2GB。';return}const submit=form.querySelector('[type=submit]');submit.disabled=true;try{if(file.size<=100*1024*1024)await uploadSmall(file,form,status);else await uploadLarge(file,form,status);status.textContent='上传完成，正在刷新…';setTimeout(()=>{document.querySelector('.close').click();render()},350)}catch(error){if(error.status===401){status.innerHTML='请先 <a href="/signin-with-chatgpt?return_to='+encodeURIComponent(location.pathname)+'" target="_top" style="color:#fff">登录</a> 后上传。'}else if(error.status===403)status.textContent='仅网站所有者邮箱可以发布内容。';else status.textContent='上传中断：'+(error.message||'请检查网络后重试。')}finally{submit.disabled=false}};
+  function uploadSmall(file,form,status){return new Promise((resolve,reject)=>{const params=new URLSearchParams({type:form.elements.type.value,title:form.elements.title.value,filename:file.name});const xhr=new XMLHttpRequest();xhr.open('POST','/api/upload?'+params);xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');xhr.upload.onprogress=event=>{if(event.lengthComputable){const percent=Math.min(99,Math.round(event.loaded/event.total*100));status.textContent='正在上传 '+percent+'% · '+formatBytes(event.loaded)+' / '+formatBytes(event.total)}};xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(Object.assign(new Error('服务器未能保存文件。'),{status:xhr.status}));xhr.onerror=()=>reject(new Error('网络连接中断，请重试。'));xhr.send(file)})}
+  async function uploadLarge(file,form,status){const meta={type:form.elements.type.value,title:form.elements.title.value,filename:file.name,contentType:file.type||'application/octet-stream',size:file.size};const start=await fetch('/api/uploads/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(meta)});if(!start.ok)throw Object.assign(new Error('无法开始大文件上传。'),{status:start.status});const session=await start.json();const partSize=10*1024*1024;const totalParts=Math.ceil(file.size/partSize);const parts=new Array(totalParts);const loaded=new Array(totalParts).fill(0);let cursor=0;const update=()=>{const sent=loaded.reduce((a,b)=>a+b,0);const percent=Math.min(99,Math.floor(sent/file.size*100));status.textContent='分片上传 '+percent+'% · '+formatBytes(sent)+' / '+formatBytes(file.size)};const worker=async()=>{while(true){const index=cursor++;if(index>=totalParts)return;const blob=file.slice(index*partSize,Math.min(file.size,(index+1)*partSize));parts[index]=await uploadPart(session,index+1,blob,value=>{loaded[index]=value;update()});loaded[index]=blob.size;update()}};await Promise.all([worker(),worker(),worker()]);status.textContent='正在合并 '+totalParts+' 个分片…';const complete=await fetch('/api/uploads/complete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...meta,...session,parts})});if(!complete.ok)throw Object.assign(new Error('视频分片已上传，但合并失败。'),{status:complete.status})}
+  function uploadPart(session,partNumber,blob,onProgress,attempt=1){return new Promise((resolve,reject)=>{const params=new URLSearchParams({key:session.key,uploadId:session.uploadId,part:String(partNumber)});const xhr=new XMLHttpRequest();xhr.open('PUT','/api/uploads/part?'+params);xhr.setRequestHeader('Content-Type','application/octet-stream');xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(e.loaded)};xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300){try{resolve(JSON.parse(xhr.responseText))}catch(e){reject(new Error('分片响应无效。'))}}else if(attempt<3)setTimeout(()=>uploadPart(session,partNumber,blob,onProgress,attempt+1).then(resolve,reject),500*attempt);else reject(Object.assign(new Error('第 '+partNumber+' 个分片上传失败。'),{status:xhr.status}))};xhr.onerror=()=>attempt<3?setTimeout(()=>uploadPart(session,partNumber,blob,onProgress,attempt+1).then(resolve,reject),500*attempt):reject(new Error('网络中断，第 '+partNumber+' 个分片未上传。'));xhr.send(blob)})}
   function formatBytes(bytes){if(bytes<1024)return bytes+' B';if(bytes<1024*1024)return(bytes/1024).toFixed(1)+' KB';return(bytes/1024/1024).toFixed(1)+' MB'}
   addEventListener('popstate',render);render();
   </script>
@@ -108,6 +111,63 @@ async function uploadItem(request, env) {
   return json({ id, type, title, media_key: key, media_type: contentType }, 201);
 }
 
+async function startMultipart(request, env) {
+  const email = ownerEmail(request);
+  if (!email) return json({ error: 'sign in required' }, 401);
+  if (email !== OWNER_EMAIL) return json({ error: 'owner only' }, 403);
+  const input = await request.json();
+  const type = String(input.type || '');
+  const title = String(input.title || '').trim().slice(0, 80);
+  const filename = String(input.filename || 'video.bin');
+  const contentType = String(input.contentType || 'application/octet-stream').split(';')[0].trim();
+  const size = Number(input.size || 0);
+  if (!['work', 'product'].includes(type) || !title || !/^(image\/|video\/)/.test(contentType) || size <= 0 || size > 2 * 1024 * 1024 * 1024) return json({ error: 'invalid upload' }, 413);
+  const id = crypto.randomUUID();
+  const ext = (filename.split('.').pop() || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 8);
+  const key = type + '/' + id + (ext ? '.' + ext : '');
+  const upload = await env.BUCKET.createMultipartUpload(key, { httpMetadata: { contentType } });
+  return json({ id, key, uploadId: upload.uploadId });
+}
+
+async function uploadMultipartPart(request, env) {
+  const email = ownerEmail(request);
+  if (!email) return json({ error: 'sign in required' }, 401);
+  if (email !== OWNER_EMAIL) return json({ error: 'owner only' }, 403);
+  const url = new URL(request.url);
+  const key = String(url.searchParams.get('key') || '');
+  const uploadId = String(url.searchParams.get('uploadId') || '');
+  const partNumber = Number(url.searchParams.get('part') || 0);
+  const size = Number(request.headers.get('content-length') || 0);
+  if (!/^(work|product)\/[a-f0-9-]+\.[a-z0-9]+$/i.test(key) || !uploadId || !Number.isInteger(partNumber) || partNumber < 1 || partNumber > 10000 || !request.body || size <= 0 || size > 11 * 1024 * 1024) return json({ error: 'invalid part' }, 400);
+  const upload = env.BUCKET.resumeMultipartUpload(key, uploadId);
+  const part = await upload.uploadPart(partNumber, request.body);
+  return json({ partNumber: part.partNumber, etag: part.etag });
+}
+
+async function completeMultipart(request, env) {
+  const email = ownerEmail(request);
+  if (!email) return json({ error: 'sign in required' }, 401);
+  if (email !== OWNER_EMAIL) return json({ error: 'owner only' }, 403);
+  const input = await request.json();
+  const id = String(input.id || '');
+  const key = String(input.key || '');
+  const uploadId = String(input.uploadId || '');
+  const type = String(input.type || '');
+  const title = String(input.title || '').trim().slice(0, 80);
+  const contentType = String(input.contentType || 'application/octet-stream').split(';')[0].trim();
+  const parts = Array.isArray(input.parts) ? input.parts.map(p=>({ partNumber:Number(p.partNumber), etag:String(p.etag || '') })).sort((a,b)=>a.partNumber-b.partNumber) : [];
+  if (!['work', 'product'].includes(type) || !id || key.indexOf(type + '/' + id + '.') !== 0 || !uploadId || !title || !/^(image\/|video\/)/.test(contentType) || !parts.length || parts.some((p,i)=>p.partNumber!==i+1||!p.etag)) return json({ error: 'invalid completion' }, 400);
+  const upload = env.BUCKET.resumeMultipartUpload(key, uploadId);
+  await upload.complete(parts);
+  try {
+    await env.DB.prepare('INSERT INTO portfolio_items (id, type, title, media_key, media_type, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, type, title, key, contentType, new Date().toISOString()).run();
+  } catch (error) {
+    await env.BUCKET.delete(key);
+    throw error;
+  }
+  return json({ id, type, title, media_key: key, media_type: contentType }, 201);
+}
+
 async function media(key, env, request) {
   const object = await env.BUCKET.get(key, { range: request.headers });
   if (!object) return new Response('Not found', { status: 404 });
@@ -135,6 +195,9 @@ export default {
       if (url.pathname === '/api/items' && request.method === 'GET') return listItems(request, env);
       if (url.pathname === '/api/items' && request.method === 'POST') return addItem(request, env);
       if (url.pathname === '/api/upload' && request.method === 'POST') return uploadItem(request, env);
+      if (url.pathname === '/api/uploads/start' && request.method === 'POST') return startMultipart(request, env);
+      if (url.pathname === '/api/uploads/part' && request.method === 'PUT') return uploadMultipartPart(request, env);
+      if (url.pathname === '/api/uploads/complete' && request.method === 'POST') return completeMultipart(request, env);
       if (url.pathname.startsWith('/media/') && (request.method === 'GET' || request.method === 'HEAD')) return media(decodeURIComponent(url.pathname.slice(7)), env, request);
       if (request.method === 'GET') return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://player.mux.com; media-src 'self' https: blob:; img-src 'self' https: data: blob:; connect-src 'self' https:;" } });
       return new Response('Method not allowed', { status: 405 });
