@@ -40,11 +40,12 @@ const html = `<!doctype html>
   function setupSnapScroll(){const sections=[...document.querySelectorAll('#home,#works,#products,#contact')];let locked=false;let touchY=0;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;const move=direction=>{if(locked||modal.classList.contains('open'))return;const current=sections.reduce((best,section,index)=>Math.abs(section.getBoundingClientRect().top)<best.distance?{index,distance:Math.abs(section.getBoundingClientRect().top)}:best,{index:0,distance:Infinity}).index;const next=Math.max(0,Math.min(sections.length-1,current+direction));if(next===current)return;locked=true;sections[next].scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});history.replaceState({},'',location.pathname+'#'+sections[next].id);setTimeout(()=>locked=false,reduced?120:900)};window.onwheel=e=>{if(Math.abs(e.deltaY)<4||e.target.closest('.modal'))return;e.preventDefault();move(e.deltaY>0?1:-1)};window.ontouchstart=e=>{touchY=e.touches[0].clientY};window.ontouchend=e=>{const delta=touchY-e.changedTouches[0].clientY;if(Math.abs(delta)>24)move(delta>0?1:-1)};window.onkeydown=e=>{if(['ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();move(1)}else if(['ArrowUp','PageUp'].includes(e.key)){e.preventDefault();move(-1)}}}
   function animateIn(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const items=[...document.querySelectorAll('.brand,.nav,.admin-btn,.headline-clip,.hero-copy,.page-head,.toolbar,.contact-layout')];items.forEach((el,i)=>el.animate([{opacity:0,transform:'translateY(18px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,delay:80+i*90,easing:'cubic-bezier(.2,.8,.2,1)',fill:'both'}))}
   async function loadItems(type){const grid=document.getElementById('mediaGrid-'+type);try{const res=await fetch('/api/items?type='+type);const items=await res.json();const samples=[{title:type==='work'?'无限探索 · 动态视觉':'沉浸式品牌体验',media_type:'image/jpeg',url:'https://image.mux.com/'+MUX+'/thumbnail.jpg?time='+(type==='work'?'2':'4')+'&width=1400',sample:true}];const all=[...items,...samples];grid.innerHTML=all.map(x=>'<article class="card"><div class="card-media">'+(x.media_type.startsWith('video')?'<video src="'+(x.url||'/media/'+encodeURIComponent(x.media_key))+'" muted loop playsinline preload="metadata" controls></video>':'<img src="'+(x.url||'/media/'+encodeURIComponent(x.media_key))+'" alt="'+escapeHtml(x.title)+'" loading="lazy">')+'</div>'+(x.sample?'<span class="sample-label">示例内容</span>':'')+'<div class="card-body"><h2>'+escapeHtml(x.title)+'</h2><small>'+(x.media_type.startsWith('video')?'VIDEO':'IMAGE')+'</small></div></article>').join('');bindVideoHover(grid)}catch(e){grid.innerHTML='<div class="empty">内容加载失败，请稍后刷新。</div>'}}
-  function bindVideoHover(root){root.querySelectorAll('video').forEach(video=>{video.addEventListener('mouseenter',()=>video.play().catch(()=>{}));video.addEventListener('mouseleave',()=>{video.pause();try{video.currentTime=0}catch(e){}})})}
+  function bindVideoHover(root){root.querySelectorAll('video').forEach(video=>{video.addEventListener('mouseenter',()=>video.play().catch(()=>{}));video.addEventListener('mouseleave',()=>video.pause())})}
   function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
   function openUpload(type){modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.querySelector('#uploadForm [name=type]').value=type}
   document.querySelector('.close').onclick=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')};modal.onclick=e=>{if(e.target===modal)document.querySelector('.close').click()};document.querySelector('[name=file]').onchange=e=>{document.getElementById('fileText').textContent=e.target.files[0]?.name||'选择图片或视频'};
-  document.getElementById('uploadForm').onsubmit=async e=>{e.preventDefault();const status=document.getElementById('uploadStatus');status.textContent='正在上传…';const res=await fetch('/api/items',{method:'POST',body:new FormData(e.currentTarget)});if(res.status===401){status.innerHTML='请先 <a href="/signin-with-chatgpt?return_to='+encodeURIComponent(location.pathname)+'" target="_top" style="color:#fff">登录</a> 后上传。';return}if(res.status===403){status.textContent='仅网站所有者邮箱可以发布内容。';return}if(!res.ok){status.textContent='上传失败，请检查文件大小与格式。';return}status.textContent='发布成功';setTimeout(()=>{document.querySelector('.close').click();render()},500)};
+  document.getElementById('uploadForm').onsubmit=e=>{e.preventDefault();const form=e.currentTarget;const status=document.getElementById('uploadStatus');const file=form.elements.file.files[0];if(!file)return;if(file.size>100*1024*1024){status.textContent='文件不能超过 100MB。';return}const submit=form.querySelector('[type=submit]');submit.disabled=true;const params=new URLSearchParams({type:form.elements.type.value,title:form.elements.title.value,filename:file.name});const xhr=new XMLHttpRequest();xhr.open('POST','/api/upload?'+params);xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');xhr.upload.onprogress=event=>{if(event.lengthComputable){const percent=Math.min(99,Math.round(event.loaded/event.total*100));status.textContent='正在上传 '+percent+'% · '+formatBytes(event.loaded)+' / '+formatBytes(event.total)}else status.textContent='正在上传…'};xhr.onload=()=>{submit.disabled=false;if(xhr.status===401){status.innerHTML='请先 <a href="/signin-with-chatgpt?return_to='+encodeURIComponent(location.pathname)+'" target="_top" style="color:#fff">登录</a> 后上传。';return}if(xhr.status===403){status.textContent='仅网站所有者邮箱可以发布内容。';return}if(xhr.status<200||xhr.status>=300){status.textContent='上传失败，请检查文件格式或网络后重试。';return}status.textContent='上传完成，正在刷新…';setTimeout(()=>{document.querySelector('.close').click();render()},350)};xhr.onerror=()=>{submit.disabled=false;status.textContent='网络中断，上传未完成，请重试。'};status.textContent='准备上传…';xhr.send(file)};
+  function formatBytes(bytes){if(bytes<1024)return bytes+' B';if(bytes<1024*1024)return(bytes/1024).toFixed(1)+' KB';return(bytes/1024/1024).toFixed(1)+' MB'}
   addEventListener('popstate',render);render();
   </script>
 </body></html>`;
@@ -82,6 +83,31 @@ async function addItem(request, env) {
   return json({ id, type, title, media_key: key, media_type: file.type }, 201);
 }
 
+async function uploadItem(request, env) {
+  const email = ownerEmail(request);
+  if (!email) return json({ error: 'sign in required' }, 401);
+  if (email !== OWNER_EMAIL) return json({ error: 'owner only' }, 403);
+  const url = new URL(request.url);
+  const type = String(url.searchParams.get('type') || '');
+  const title = String(url.searchParams.get('title') || '').trim().slice(0, 80);
+  const filename = String(url.searchParams.get('filename') || 'media.bin');
+  const contentType = String(request.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
+  const size = Number(request.headers.get('content-length') || 0);
+  if (!['work', 'product'].includes(type) || !title || !request.body) return json({ error: 'invalid upload' }, 400);
+  if (!/^(image\/|video\/)/.test(contentType) || !Number.isFinite(size) || size <= 0 || size > 100 * 1024 * 1024) return json({ error: 'unsupported file' }, 413);
+  const id = crypto.randomUUID();
+  const ext = (filename.split('.').pop() || 'bin').replace(/[^a-z0-9]/gi, '').slice(0, 8);
+  const key = type + '/' + id + (ext ? '.' + ext : '');
+  await env.BUCKET.put(key, request.body, { httpMetadata: { contentType } });
+  try {
+    await env.DB.prepare('INSERT INTO portfolio_items (id, type, title, media_key, media_type, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, type, title, key, contentType, new Date().toISOString()).run();
+  } catch (error) {
+    await env.BUCKET.delete(key);
+    throw error;
+  }
+  return json({ id, type, title, media_key: key, media_type: contentType }, 201);
+}
+
 async function media(key, env, request) {
   const object = await env.BUCKET.get(key, { range: request.headers });
   if (!object) return new Response('Not found', { status: 404 });
@@ -108,6 +134,7 @@ export default {
     try {
       if (url.pathname === '/api/items' && request.method === 'GET') return listItems(request, env);
       if (url.pathname === '/api/items' && request.method === 'POST') return addItem(request, env);
+      if (url.pathname === '/api/upload' && request.method === 'POST') return uploadItem(request, env);
       if (url.pathname.startsWith('/media/') && (request.method === 'GET' || request.method === 'HEAD')) return media(decodeURIComponent(url.pathname.slice(7)), env, request);
       if (request.method === 'GET') return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://player.mux.com; media-src 'self' https: blob:; img-src 'self' https: data: blob:; connect-src 'self' https:;" } });
       return new Response('Method not allowed', { status: 405 });
@@ -116,3 +143,4 @@ export default {
     }
   }
 };
+
