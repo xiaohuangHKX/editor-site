@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="AUREON Aura One 高端智能香氛音响官网，支持 3D 商品查看、配色切换与沉浸式购物体验。"
+    />
+    <title>AUREON Aura One | 3D 电商官网</title>
+    <link rel="stylesheet" href="/src/styles/global.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="site-shell">
+      <header class="topbar">
+        <a class="brand-mark" href="#top" aria-label="AUREON 首页">
+          <span class="brand-glyph">A</span>
+          <span>AUREON</span>
+        </a>
+        <nav class="nav-links" id="site-nav" aria-label="主导航">
+          <a href="#viewer">3D 查看</a>
+          <a href="#features">功能</a>
+          <a href="#specs">规格</a>
+          <a href="#checkout">购买</a>
+        </nav>
+        <div class="topbar-actions">
+          <button class="icon-button ghost" type="button" aria-label="收藏商品">
+            <i data-lucide="heart" aria-hidden="true"></i>
+          </button>
+          <button class="cart-button" type="button">
+            <i data-lucide="shopping-bag" aria-hidden="true"></i>
+            <span>购物袋</span>
+          </button>
+          <button class="icon-button menu-toggle" id="menu-toggle" type="button" aria-label="打开导航">
+            <i data-lucide="menu" aria-hidden="true"></i>
+          </button>
+        </div>
+      </header>
+
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <div class="eyebrow">
+            <i data-lucide="zap" aria-hidden="true"></i>
+            2026 新品首发
+          </div>
+          <h1>
+            <span>Aura One</span>
+            <span>智能香氛</span>
+            <span>音响</span>
+          </h1>
+          <p>
+            一台把空间音频、柔和灯影与可控香氛整合在一起的桌面设备。为卧室、书房和精品空间设计。
+          </p>
+          <div class="hero-actions">
+            <a class="primary-cta" href="#checkout">
+              立即选购
+              <i data-lucide="arrow-right" aria-hidden="true"></i>
+            </a>
+            <a class="secondary-cta" href="#viewer">
+              <i data-lucide="rotate-3d" aria-hidden="true"></i>
+              查看 3D 商品
+            </a>
+          </div>
+          <div class="trust-strip" aria-label="购物保障">
+            <span><i data-lucide="shield-check" aria-hidden="true"></i> 两年质保</span>
+            <span><i data-lucide="truck" aria-hidden="true"></i> 顺丰包邮</span>
+            <span><i data-lucide="badge-check" aria-hidden="true"></i> 30 天试用</span>
+          </div>
+        </div>
+
+        <div class="hero-showcase" id="viewer">
+          <div class="viewer-frame">
+            <div class="product-fallback" id="product-fallback" aria-hidden="true">
+              <div class="fallback-product">
+                <span class="fallback-glass"></span>
+                <span class="fallback-ring"></span>
+                <span class="fallback-body"></span>
+                <span class="fallback-sensor"></span>
+                <span class="fallback-base"></span>
+                <span class="fallback-knob"></span>
+              </div>
+            </div>
+            <canvas class="product-canvas" id="product-canvas" aria-label="Aura One 3D 商品查看器"></canvas>
+            <div class="viewer-toolbar" aria-label="3D 查看控制">
+              <button type="button" id="explode-toggle">
+                <i data-lucide="box" aria-hidden="true"></i>
+                <span>分层查看</span>
+              </button>
+              <span>拖拽旋转 · 滚轮缩放</span>
+            </div>
+          </div>
+
+          <aside class="purchase-panel" id="checkout" aria-label="购买 Aura One">
+            <div>
+              <span class="panel-kicker">AURA ONE / <span id="variant-short">银雾</span></span>
+              <h2 id="variant-price">¥2,899</h2>
+            </div>
+
+            <div class="selector-group">
+              <div class="selector-label">
+                <span>配色</span>
+                <strong id="variant-label">Mist Silver</strong>
+              </div>
+              <div class="swatches">
+                <button
+                  type="button"
+                  class="swatch is-selected"
+                  data-variant="mist"
+                  style="--swatch: #dce7ee; --swatch-dark: #8798a5"
+                  aria-label="选择 Mist Silver"
+                ></button>
+                <button
+                  type="button"
+                  class="swatch"
+                  data-variant="graphite"
+                  style="--swatch: #20242a; --swatch-dark: #0d1014"
+                  aria-label="选择 Graphite Black"
+                ></button>
+                <button
+                  type="button"
+                  class="swatch"
+                  data-variant="clay"
+                  style="--swatch: #d8b79e; --swatch-dark: #8d6a55"
+                  aria-label="选择 Soft Clay"
+                ></button>
+              </div>
+            </div>
+
+            <div class="quantity-row">
+              <span>数量</span>
+              <div class="stepper" aria-label="商品数量">
+                <button type="button" id="quantity-minus" aria-label="减少数量">
+                  <i data-lucide="minus" aria-hidden="true"></i>
+                </button>
+                <strong id="quantity-value">1</strong>
+                <button type="button" id="quantity-plus" aria-label="增加数量">
+                  <i data-lucide="plus" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="checkout-total">
+              <span>预计合计</span>
+              <strong id="checkout-total">¥2,899</strong>
+            </div>
+
+            <button class="add-to-bag" type="button" id="add-to-bag">
+              <i data-lucide="shopping-bag" aria-hidden="true"></i>
+              <span>加入购物袋</span>
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="feature-grid" id="features">
+        <article class="feature-card">
+          <i data-lucide="layers-3" aria-hidden="true"></i>
+          <strong>360°</strong>
+          <span>实时 3D 商品预览</span>
+        </article>
+        <article class="feature-card">
+          <i data-lucide="volume-2" aria-hidden="true"></i>
+          <strong>42mm</strong>
+          <span>双钕磁全频单元</span>
+        </article>
+        <article class="feature-card">
+          <i data-lucide="battery-charging" aria-hidden="true"></i>
+          <strong>18h</strong>
+          <span>整日续航与快充</span>
+        </article>
+        <article class="feature-card">
+          <i data-lucide="sparkles" aria-hidden="true"></i>
+          <strong>12</strong>
+          <span>可替换香氛胶囊</span>
+        </article>
+      </section>
+
+      <section class="experience-band">
+        <div class="experience-copy">
+          <span class="section-kicker">Mood Engine</span>
+          <h2>音乐、灯光和香氛按你的空间节奏同步。</h2>
+          <p>
+            Aura One 会根据播放内容与房间时段调整低频、色温和香氛释放强度。早晨更清爽，深夜更克制。
+          </p>
+        </div>
+        <div class="experience-visual" aria-hidden="true">
+          <div class="pulse-ring ring-one"></div>
+          <div class="pulse-ring ring-two"></div>
+          <div class="pulse-core"></div>
+          <div class="scent-card card-one">Focus</div>
+          <div class="scent-card card-two">Calm</div>
+          <div class="scent-card card-three">Sleep</div>
+        </div>
+      </section>
+
+      <section class="details-layout" id="specs">
+        <div class="details-copy">
+          <span class="section-kicker">Craft</span>
+          <h2>从桌面比例到每一道接缝，都为近距离观看而做。</h2>
+          <p>
+            顶部雾面玻璃隐藏环形氛围灯，中段微孔织物负责声学透气，底部金属旋钮保留实体操控手感。
+          </p>
+        </div>
+        <div class="spec-table">
+          <div class="spec-row"><span>材质</span><strong>航空铝合金、微孔织物、雾面玻璃</strong></div>
+          <div class="spec-row"><span>连接</span><strong>Wi-Fi 7、Bluetooth 6、Matter</strong></div>
+          <div class="spec-row"><span>音频</span><strong>空间声场、主动低频补偿、夜间人声增强</strong></div>
+          <div class="spec-row"><span>香氛</span><strong>低温雾化、三档浓度、场景自动化</strong></div>
+          <div class="spec-row"><span>尺寸</span><strong>102 x 102 x 182 mm</strong></div>
+          <div class="spec-row"><span>保修</span><strong>2 年整机质保，30 天无理由试用</strong></div>
+        </div>
+      </section>
+
+      <section class="review-strip" aria-label="用户评价">
+        <blockquote>
+          <span>01</span>
+          它不像传统音箱摆在家里，更像一件能发声的光影家具。
+        </blockquote>
+        <blockquote>
+          <span>02</span>
+          香氛、氛围灯、音乐联动做得非常顺，晚上回家一键就进入放松状态。
+        </blockquote>
+        <blockquote>
+          <span>03</span>
+          3D 预览能直接看清材质和比例，选颜色时很有帮助。
+        </blockquote>
+      </section>
+
+      <section class="final-cta">
+        <span class="section-kicker">Launch Offer</span>
+        <h2>首发礼盒包含 3 款香氛胶囊与桌面无线充底座。</h2>
+        <a class="primary-cta dark" href="#checkout">
+          选择你的 Aura One
+          <i data-lucide="chevron-down" aria-hidden="true"></i>
+        </a>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+    <script type="module" src="/src/site.js"></script>
+  </body>
+</html>
